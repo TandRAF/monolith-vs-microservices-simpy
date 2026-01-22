@@ -5,9 +5,9 @@ from collections import deque
 # --- CONFIGURATION ---
 WIDTH, HEIGHT = 1200, 850
 FPS = 60
-MONO_LIMIT = 40      # Monolith Capacity
-SVC_LIMIT = 25       # Microservice Capacity
-DB_CAPACITY = 35     # Database Bottleneck
+MONO_LIMIT = 40
+SVC_LIMIT = 25 
+DB_CAPACITY = 35
 HISTORY_LEN = 200
 
 # Colors
@@ -59,18 +59,17 @@ class SystemManager:
         success_frame = 0
         fail_frame = 0
 
-        # 1. CRASH LOGIC (Cascading)
+        # 1. CRASH LOGIC
         if self.mode == "MONOLITH" and self.alive[0]:
             load = len([r for r in self.requests if r.status in ["in_db", "to_db"]])
             if load >= MONO_LIMIT: self.alive[0] = False
         else:
-            # Check individual service loads
             for i in [1, 2]:
                 if len(self.alive) > i and self.alive[i]:
                     svc_load = len([r for r in self.requests if r.status == "to_db" and r.target_idx == i])
                     if svc_load >= SVC_LIMIT: self.alive[i] = False
 
-        # 2. DB LOGIC (Safe Removal)
+        # 2. DB LOGIC
         db_full = len(self.db_queue) > DB_CAPACITY
         to_remove_db = []
         for r in self.db_queue:
@@ -157,7 +156,7 @@ class SystemManager:
                 pct = min(1.0, load / SVC_LIMIT)
                 pygame.draw.rect(screen, (50,50,50), (rect.x, rect.y + 110, 100, 8))
                 pygame.draw.rect(screen, ERROR_RED if not self.alive[i] else ORDER_COLOR, (rect.x, rect.y + 110, 100 * pct, 8))
-                
+                screen.blit(font.render(f"THREADS: {load}/{SVC_LIMIT}", True, order_c), (rect.x, rect.y + 120))    
                 status = "ACTIVE" if self.alive[i] else "CRASHED"
                 screen.blit(font.render(f"ORDER {i}: {status}", True, order_c), (rect.x, rect.y-20))
 
@@ -190,21 +189,18 @@ while True:
             if event.key == pygame.K_DOWN: flow = max(0.0, flow - 0.1)
             if event.key == pygame.K_r: sys_mgr.alive = [True]*len(sys_mgr.alive); sys_mgr.requests = []; sys_mgr.db_queue = []
             
-            # --- FIXED INPUTS (Prevents Crash) ---
             if event.key == pygame.K_1: 
                 sys_mgr.alive[0] = not sys_mgr.alive[0]
             if event.key == pygame.K_2: 
-                # Check if we are in MICRO mode before accessing index 1
                 if len(sys_mgr.alive) > 1: sys_mgr.alive[1] = not sys_mgr.alive[1]
             if event.key == pygame.K_3: 
-                # Check if we are in MICRO mode before accessing index 2
                 if len(sys_mgr.alive) > 2: sys_mgr.alive[2] = not sys_mgr.alive[2]
 
     sys_mgr.update(flow)
     sys_mgr.draw()
     draw_graphs(sys_mgr)
     
-    screen.blit(title_font.render(f"ARCH: {sys_mgr.mode} | FLOW: {int(flow*100)}%", True, (255, 255, 255)), (20, 20))
+    screen.blit(title_font.render(f"ARCHITECTURE: {sys_mgr.mode} | FLOW: {int(flow*100)}%", True, (255, 255, 255)), (20, 20))
     screen.blit(font.render("[C]Swap [UP/DOWN]Flow [R]Reboot [1]Auth/Mono [2]Order1 [3]Order2", True, (150, 150, 150)), (20, 55))
     pygame.display.flip()
     clock.tick(FPS)
